@@ -1,0 +1,119 @@
+body,html {
+    height: 100%;
+    margin: 0%;
+    background-color: rgba(37, 49, 121);
+}
+
+main {
+    height: 80%;
+    aspect-ratio: 90/160;
+    border-radius: 1vh;
+
+    transform: translate(-50%,-50%);
+    left: 50%;
+    top: 50%;
+    position: absolute;
+
+    background-color: white;
+    box-shadow: 1vh 1vh 3vh rgba(0, 12, 84);
+}
+
+#Links {
+    width: 90%;
+    height: 60%;
+
+    transform: translate(-50%,-50%);
+    left: 50%;
+    top: 67%;
+    position: absolute;
+}
+
+.Link {
+    width: 100%;
+    height: 22%;
+    display: block;
+
+    margin-bottom: 5%;
+
+    border: solid 0.4vh;
+    box-sizing: border-box;
+    border-radius: 1vh;
+}
+
+#Title{
+    width: 95%;
+    height: 25%;
+
+    transform: translate(-50%,0%);
+    top: 10%;
+    left: 50%;
+    position: absolute;
+}
+
+#Image {
+    height: 11.7vh;
+    aspect-ratio: 1/1;
+
+    position: absolute;
+    transform: translate(-50%,0%);
+    left: 50%;
+    top: -5%;
+}
+
+img {
+    height: 100%;
+
+    border-radius: 100%;
+    border: solid 0.5vh;
+    box-sizing: border-box;
+}
+
+h1{
+    width: 100%;
+
+    margin: 0px;
+    transform: translate(-50%,-50%);
+    top: 67%;
+    left: 50%;
+    position: absolute;
+
+    font-size: 3.9vh;
+    font-family: Arial, Helvetica, sans-serif;
+    text-align: center;
+}
+
+h2 {
+    width: 100%;
+
+    margin: 0px;
+    transform: translate(-50%,-50%);
+    top: 81%;
+    left: 50%;
+    position: absolute;
+
+    font-size: 1.8vh; 
+    text-align: center;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+a{
+    position: relative;
+}
+
+a:visited {
+  color: black;
+}
+
+h3{
+    width: 100%;
+    text-align: center;
+
+    margin: 0px;
+    transform: translate(-50%,-50%);
+    top: 50%;
+    left: 50%;
+    position: absolute;
+
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 2.8vh;
+}

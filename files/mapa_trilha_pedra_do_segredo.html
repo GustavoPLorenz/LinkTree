@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Trilha da Pedra do Segredo — Mapa Interativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --rock:#8B3A2B;
+    --rock-dark:#5C2419;
+    --campo:#4B6043;
+    --campo-light:#8A9A6C;
+    --paper:#E9E1CB;
+    --paper-dark:#D9CEAC;
+    --ink:#2B2420;
+    --gold:#B5872E;
+    --cream:#F4EEDD;
+    --panel-bg:#FBF8EF;
+    --font-display:'Fraunces', 'Iowan Old Style','Palatino Linotype',Georgia,serif;
+    --font-body:'Inter',-apple-system,'Segoe UI',Roboto,sans-serif;
+    --font-mono:'IBM Plex Mono','SF Mono',Consolas,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0;padding:0;width:100%;height:100%;overflow:hidden;
+    background:var(--ink);
+    font-family:var(--font-body);
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+  }
+  #app{position:relative;width:100vw;height:100vh;background:var(--paper);overflow:hidden;}
+
+  /* ---------- TOP BAR ---------- */
+  header{
+    position:absolute;top:0;left:0;right:0;z-index:30;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 28px;
+    background:linear-gradient(180deg, rgba(43,36,32,0.92) 0%, rgba(43,36,32,0.0) 100%);
+    pointer-events:none;
+  }
+  header *{pointer-events:auto;}
+  .brand{display:flex;flex-direction:column;gap:2px;}
+  .eyebrow{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--gold);
+  }
+  h1{
+    font-family:var(--font-display);font-weight:600;font-size:26px;
+    color:var(--cream);margin:0;letter-spacing:.01em;
+  }
+  .top-actions{display:flex;gap:10px;}
+  .chip-btn{
+    font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;
+    color:var(--cream);background:rgba(233,225,203,0.14);
+    border:1px solid rgba(233,225,203,0.35);border-radius:100px;
+    padding:10px 18px;cursor:pointer;text-transform:uppercase;
+    transition:background .15s ease;
+  }
+  .chip-btn:active{background:rgba(233,225,203,0.32);}
+  .chip-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+
+  /* ---------- MAP CANVAS ---------- */
+  #mapWrap{position:absolute;inset:0;}
+  svg#map{width:100%;height:100%;display:block;}
+
+  .contour{fill:none;stroke:var(--paper-dark);stroke-width:1.4;opacity:.9;}
+  .contour.deep{stroke:#C9BB8E;opacity:.7;}
+  .rockmass{fill:var(--rock);}
+  .rockmass.shade{fill:var(--rock-dark);opacity:.55;}
+  .cave-mouth{fill:var(--ink);opacity:.85;}
+
+  .trail{
+    fill:none;stroke:var(--gold);stroke-width:4;
+    stroke-linecap:round;stroke-dasharray:2 14;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));
+  }
+  .trail-base{
+    fill:none;stroke:var(--rock-dark);stroke-width:7;
+    stroke-linecap:round;opacity:.25;
+  }
+
+  .compass{transform-origin:center;}
+  .scale-text, .compass-text{font-family:var(--font-mono);font-size:11px;fill:var(--ink);}
+
+  /* ---------- STOP MARKERS ---------- */
+  .stop{cursor:pointer;}
+  .stop circle.ring{fill:var(--panel-bg);stroke:var(--rock);stroke-width:3;transition:transform .15s ease, stroke .15s ease;}
+  .stop circle.dot{fill:var(--rock);}
+  .stop.final circle.ring{stroke:var(--gold);}
+  .stop.final circle.dot{fill:var(--gold);}
+  .stop text.label{
+    font-family:var(--font-mono);font-weight:500;font-size:13px;fill:var(--panel-bg);
+    text-anchor:middle;dominant-baseline:middle;pointer-events:none;
+  }
+  .stop .name-tag{
+    font-family:var(--font-body);font-weight:600;font-size:13px;fill:var(--ink);
+    text-anchor:middle;pointer-events:none;
+  }
+  .stop:hover circle.ring, .stop:focus-visible circle.ring{transform:scale(1.12);}
+  .stop.active circle.ring{stroke-width:5;transform:scale(1.18);}
+  .stop:focus-visible{outline:none;}
+  .stop.corrected .flag{fill:var(--gold);}
+
+  .pulse{fill:none;stroke:var(--gold);stroke-width:2;opacity:0;}
+  .stop.active .pulse{animation:pulseRing 1.8s ease-out infinite;}
+  @keyframes pulseRing{
+    0%{opacity:.65;transform:scale(1);}
+    100%{opacity:0;transform:scale(2.2);}
+  }
+
+  /* ---------- DETAIL PANEL ---------- */
+  #panel{
+    position:absolute;top:0;right:0;height:100%;width:min(420px,92vw);
+    background:var(--panel-bg);
+    box-shadow:-8px 0 30px rgba(0,0,0,.25);
+    transform:translateX(100%);
+    transition:transform .32s cubic-bezier(.22,.8,.3,1);
+    z-index:40;display:flex;flex-direction:column;
+  }
+  #panel.open{transform:translateX(0);}
+  .panel-head{
+    padding:26px 26px 18px;border-bottom:1px solid #E3D9B9;
+    display:flex;align-items:flex-start;gap:16px;
+  }
+  .glyph{
+    flex:0 0 auto;width:52px;height:52px;border-radius:50%;
+    background:var(--rock);display:flex;align-items:center;justify-content:center;
+  }
+  .glyph.gold{background:var(--gold);}
+  .glyph svg{width:28px;height:28px;}
+  .panel-titles{flex:1;}
+  .panel-eyebrow{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--rock);margin:0 0 4px;
+  }
+  .panel-title{
+    font-family:var(--font-display);font-weight:600;font-size:24px;margin:0;
+    line-height:1.15;color:var(--ink);
+  }
+  .panel-sci{font-style:italic;font-size:15px;color:#6B5F4E;margin-top:4px;}
+  .close-btn{
+    margin-left:auto;flex:0 0 auto;width:38px;height:38px;border-radius:50%;
+    border:1px solid #D9CBA0;background:transparent;color:var(--ink);
+    font-size:18px;cursor:pointer;line-height:1;
+  }
+  .close-btn:focus-visible{outline:2px solid var(--rock);}
+  .panel-body{padding:22px 26px 30px;overflow-y:auto;flex:1;}
+  .panel-body p{font-size:15.5px;line-height:1.6;margin:0 0 16px;color:var(--ink);}
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-family:var(--font-mono);font-size:11.5px;letter-spacing:.04em;
+    padding:6px 12px;border-radius:100px;margin-bottom:16px;
+  }
+  .badge.fix{background:#F3E3B8;color:#7A5A12;border:1px solid #E4C877;}
+  .badge.check{background:#E4EBDC;color:#3F5735;border:1px solid #B9CBA7;}
+  .badge.flag{background:#F6E3DD;color:#8B3A2B;border:1px solid #E3B9AC;}
+  hr.rule{border:none;border-top:1px solid #E3D9B9;margin:18px 0;}
+  .field{margin-bottom:14px;}
+  .field-label{
+    font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:#9A8B6C;margin-bottom:4px;
+  }
+  .field-value{font-size:14.5px;line-height:1.5;color:var(--ink);}
+
+  /* ---------- INTRO CARD (no stop selected) ---------- */
+  #intro{padding:26px;}
+  #intro h2{font-family:var(--font-display);font-size:22px;margin:0 0 10px;}
+  #intro p{font-size:14.5px;line-height:1.6;color:#5C5140;}
+
+  /* ---------- CROSS-SECTION STRIP ---------- */
+  #section{
+    position:absolute;left:0;right:0;bottom:0;height:118px;z-index:25;
+    background:var(--panel-bg);border-top:2px solid var(--rock-dark);
+  }
+  #section svg{width:100%;height:100%;display:block;}
+  .sec-label{font-family:var(--font-mono);font-size:10px;fill:var(--ink);opacity:.75;}
+  .sec-title{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;fill:var(--rock);text-transform:uppercase;}
+  .walker{fill:var(--gold);stroke:var(--panel-bg);stroke-width:2;transition:transform .5s cubic-bezier(.22,.8,.3,1);}
+
+  /* ---------- ABOUT SHEET ---------- */
+  #about{
+    position:absolute;inset:0;z-index:50;background:rgba(43,36,32,.55);
+    display:none;align-items:center;justify-content:center;
+  }
+  #about.open{display:flex;}
+  .about-card{
+    width:min(560px,88vw);max-height:80vh;overflow-y:auto;
+    background:var(--panel-bg);border-radius:18px;padding:30px 32px;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .about-card h2{font-family:var(--font-display);font-size:24px;margin:0 0 14px;}
+  .about-card p{font-size:14.5px;line-height:1.65;margin:0 0 14px;color:#3f382c;}
+  .about-card ul{padding-left:20px;margin:0 0 14px;}
+  .about-card li{font-size:14.5px;line-height:1.6;margin-bottom:6px;color:#3f382c;}
+  .about-close{
+    margin-top:6px;font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;
+    text-transform:uppercase;background:var(--rock);color:var(--cream);
+    border:none;border-radius:100px;padding:12px 22px;cursor:pointer;
+  }
+
+  @media (max-width:720px){
+    h1{font-size:20px;}
+    #panel{width:100%;}
+    header{padding:14px 16px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="brand">
+      <span class="eyebrow">Caçapava Geoparque Mundial da UNESCO</span>
+      <h1>Trilha das Estalactites — Pedra do Segredo</h1>
+    </div>
+    <div class="top-actions">
+      <button class="chip-btn" id="aboutBtn">Sobre o mapa</button>
+      <button class="chip-btn" id="resetBtn">Reiniciar</button>
+    </div>
+  </header>
+
+  <div id="mapWrap">
+    <svg id="map" viewBox="0 0 1200 700" preserveAspectRatio="xMidYMid slice" aria-label="Mapa da trilha da Pedra do Segredo">
+
+      <!-- base -->
+      <rect x="0" y="0" width="1200" height="700" fill="var(--paper)"/>
+
+      <!-- contour lines suggesting rising terrain toward the rock -->
+      <path class="contour" d="M-20,640 C 200,610 350,660 560,620 C 760,585 900,610 1220,560"/>
+      <path class="contour" d="M-20,580 C 220,545 380,600 580,555 C 800,505 940,540 1220,480"/>
+      <path class="contour deep" d="M-20,520 C 240,480 400,530 600,480 C 830,425 970,460 1220,400"/>
+      <path class="contour" d="M-20,455 C 260,410 420,460 620,405 C 850,345 980,380 1220,320"/>
+      <path class="contour deep" d="M-20,390 C 300,335 460,390 660,330 C 870,270 1000,300 1220,250"/>
+      <path class="contour" d="M180,330 C 380,270 520,320 680,255 C 860,190 1000,210 1220,175"/>
+
+      <!-- stylised rock massif (Pedra do Segredo) top right -->
+      <g>
+        <polygon class="rockmass" points="820,230 860,90 905,60 950,95 985,80 1030,150 1010,235 900,260"/>
+        <polygon class="rockmass shade" points="900,260 985,240 1010,235 990,180 940,200"/>
+        <ellipse class="cave-mouth" cx="905" cy="150" rx="26" ry="34"/>
+        <path d="M879,150 q26,-46 52,0 q-26,40 -52,0 Z" fill="none" stroke="var(--rock-dark)" stroke-width="2" opacity=".5"/>
+      </g>
+
+      <!-- compass rose -->
+      <g class="compass" transform="translate(90,110)">
+        <circle r="34" fill="var(--panel-bg)" stroke="var(--ink)" stroke-width="1.5"/>
+        <path d="M0,-26 L7,0 L0,26 L-7,0 Z" fill="var(--rock)"/>
+        <path d="M-26,0 L0,-7 L26,0 L0,7 Z" fill="var(--ink)" opacity=".5"/>
+        <text class="compass-text" x="0" y="-38" text-anchor="middle">N</text>
+      </g>
+
+      <!-- scale bar -->
+      <g transform="translate(70,600)">
+        <line x1="0" y1="0" x2="90" y2="0" stroke="var(--ink)" stroke-width="2"/>
+        <line x1="0" y1="-5" x2="0" y2="5" stroke="var(--ink)" stroke-width="2"/>
+        <line x1="90" y1="-5" x2="90" y2="5" stroke="var(--ink)" stroke-width="2"/>
+        <text class="scale-text" x="45" y="20" text-anchor="middle">200 m</text>
+      </g>
+
+      <!-- trail path -->
+      <path class="trail-base" d="M150,610 C200,560 210,520 260,480 C300,450 340,430 380,400 C430,365 470,350 520,330 C560,310 590,285 620,260 C660,230 710,215 760,190 C800,170 860,150 900,120"/>
+      <path class="trail" d="M150,610 C200,560 210,520 260,480 C300,450 340,430 380,400 C430,365 470,350 520,330 C560,310 590,285 620,260 C660,230 710,215 760,190 C800,170 860,150 900,120"/>
+
+      <!-- ===== STOPS (generated group, positions match trail) ===== -->
+      <g id="stops"></g>
+
+    </svg>
+  </div>
+
+  <!-- cross-section strip -->
+  <div id="section">
+    <svg viewBox="0 0 1200 118" preserveAspectRatio="none">
+      <rect x="0" y="0" width="1200" height="118" fill="var(--panel-bg)"/>
+      <text class="sec-title" x="18" y="18">Perfil geológico da subida — Grupo Santa Bárbara (Ediacarano, ~550 Ma)</text>
+      <!-- rock bands -->
+      <rect x="0" y="30" width="1200" height="18" fill="var(--campo-light)"/>
+      <rect x="0" y="48" width="1200" height="34" fill="#C99A6B"/>
+      <rect x="0" y="82" width="1200" height="30" fill="var(--rock)"/>
+      <text class="sec-label" x="18" y="43">solo / campo nativo</text>
+      <text class="sec-label" x="18" y="68">arenito conglomerático</text>
+      <text class="sec-label" x="18" y="100" fill="#F4EEDD">conglomerado avermelhado (matriz síltico-arenosa)</text>
+      <!-- trail line across the section -->
+      <path d="M40,50 C 250,44 420,40 600,36 C 800,32 1000,30 1160,24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-dasharray="1 8" stroke-linecap="round"/>
+      <circle id="walker" class="walker" cx="40" cy="50" r="6"/>
+    </svg>
+  </div>
+
+  <!-- detail panel -->
+  <div id="panel" aria-live="polite">
+    <div id="intro">
+      <h2>Toque em um ponto da trilha</h2>
+      <p>Cada marcador mostra o que foi observado naquele trecho durante a aula de campo — geologia, líquens, fungos e a vegetação do Bioma Pampa. O ponto dourado é o Salão das Estalactites, no alto da trilha.</p>
+    </div>
+  </div>
+
+  <!-- about sheet -->
+  <div id="about">
+    <div class="about-card">
+      <h2>Sobre este mapa</h2>
+      <p>Este mapa representa a <strong>Trilha das Estalactites</strong>, no Parque Natural Municipal da Pedra do Segredo — geossítio do <strong>Caçapava Geoparque Mundial da UNESCO</strong>, reconhecido oficialmente em 24 de maio de 2023.</p>
+      <p>A Serra do Segredo é esculpida em conglomerados e arenitos avermelhados do Grupo Santa Bárbara, depositados há cerca de 550 milhões de anos (Ediacarano), num contexto de grandes rios entrelaçados na Bacia do Camaquã.</p>
+      <ul>
+        <li>As identificações de flora, fungos e líquens deste mapa foram revisadas a partir das fotos de campo da turma, com preferência por identificação em nível de gênero ou família quando a espécie exata não podia ser confirmada com segurança.</li>
+        <li>A "Artemísia" observada foi confirmada como pertencente ao gênero Artemisia, mas provavelmente não é nativa do Bioma Pampa — a candidata mais provável (Artemisia verlotiorum) é originária da Ásia e naturalizada no Brasil.</li>
+        <li>O fungo etiquetado como "Auricularia sp." tem aparência de foto (leques laqueados vermelho-alaranjados) mais compatível com Ganoderma — identificação ainda a confirmar.</li>
+        <li>O nome "Salão das Estalactites" é o nome oficial do local — mas a rocha local não é calcária, então a estrutura não se forma pelo mesmo processo químico das estalactites cársticas clássicas.</li>
+      </ul>
+      <button class="about-close" id="aboutClose">Fechar</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/* ---------- data ---------- */
+const stops = [
+  {
+    id: 0, x:150, y:610, sec:0.02, kind:'start',
+    name:'Início da trilha', sci:'Portão de acesso',
+    eyebrow:'Ponto de partida',
+    text:'Aqui começa a Trilha das Estalactites, dentro do Parque Natural Municipal da Pedra do Segredo — criado em 1999 pela Lei Municipal nº 1.055. A unidade é de proteção integral: só permite uso indireto dos recursos naturais (visitação, pesquisa e educação ambiental).',
+    fields:[['Categoria SNUC','Unidade de conservação de proteção integral'],['Ano de criação','1999']],
+    badge:null
+  },
+  {
+    id:1, x:260, y:480, sec:0.16, kind:'plant',
+    name:'Artemísia', sci:'Artemisia cf. sp.',
+    eyebrow:'Ponto 1 · Flora de beira de trilha',
+    text:'Folhagem lobada, serrilhada e prateada, compatível com o gênero Artemisia (não confirmado a nível de espécie). A candidata mais provável é Artemisia verlotiorum, originária do sudeste da China e hoje naturalizada como planta invasora em vários continentes, inclusive registrada na flora do Brasil. Ou seja: mesmo com a identificação de gênero confirmada pela foto, não é uma espécie nativa nem endêmica do Bioma Pampa — vale citá-la como parte da vegetação de beira de trilha observada, não como exemplo de biodiversidade nativa.',
+    fields:[['Local','Ponto 1'],['Status','Provável espécie naturalizada, não nativa']],
+    badge:{type:'fix', label:'Gênero confirmado por foto · não nativa'}
+  },
+  {
+    id:2, x:380, y:400, sec:0.32, kind:'fungus',
+    name:'Orelha-de-pau', sci:'cf. Ganoderma sp. (etiquetado como Auricularia sp.)',
+    eyebrow:'Ponto 2 · Fungos',
+    text:'A foto de campo mostra leques concêntricos vermelho-alaranjados com superfície laqueada e brilhante — o padrão clássico de Ganoderma, o fungo popularmente chamado de "orelha-de-pau" no Brasil. Auricularia (às vezes chamada "orelha-de-pau gelatinosa" ou "orelha-de-judas") tem textura gelatinosa, opaca, sem esse brilho — não bate com a foto. O próprio nome popular usado ("orelha-de-pau") já aponta para Ganoderma, não para Auricularia.',
+    fields:[['Local','Ponto 2'],['Status','Nome popular e gênero citado se contradizem — confirmar com especialista']],
+    badge:{type:'flag', label:'Confirmar identificação'}
+  },
+  {
+    id:3, x:520, y:330, sec:0.5, kind:'lichen',
+    name:'Líquens de tronco e rocha', sci:'Flavoparmelia sp. · Arthoniaceae indet.',
+    eyebrow:'Ponto 3 · Líquens',
+    text:'Dois líquens registrados por foto: o líquen verde, foliáceo, de textura irregular (gênero Flavoparmelia, espécie não confirmada), e um líquen crostoso branco-acinzentado com manchas avermelhadas, da família Arthoniaceae — identificado apenas até família, sem espécie confirmada.',
+    fields:[['Local','Ponto 3'],['Nota','Identificação mantida em nível de gênero/família por prudência — evita apontar espécie sem confirmação']],
+    badge:{type:'check', label:'Confirmado por foto de campo'}
+  },
+  {
+    id:4, x:620, y:260, sec:0.66, kind:'lichen',
+    name:'Líquens de rocha', sci:'Xanthoria parietina · Parmotrema sp.',
+    eyebrow:'Ponto 4 · Líquens',
+    text:'Líquens coloridos fixados diretamente na pedra: o líquen-laranja, com manchas alaranjadas e esverdeadas bem visíveis, e um líquen folhoso do gênero Parmotrema, de lóbulos largos e margem ondulada — espécie exata não confirmada pela foto.',
+    fields:[['Local','Ponto 4']],
+    badge:{type:'check', label:'Confirmado por foto de campo'}
+  },
+  {
+    id:5, x:760, y:190, sec:0.82, kind:'moss',
+    name:'Musgo', sci:'Bryophyta indet.',
+    eyebrow:'Ponto 5 · Briófitas',
+    text:'Musgo formando um "tapete" verde e denso sobre a rocha — indicador de microclima mais úmido nesse trecho da trilha. Identificação de musgos até o nível de espécie exige exame microscópico, por isso mantida em Bryophyta indet. Nota: os materiais da turma divergem entre si — a tabela de campo diz "Bryophyta indet.", mas um dos slides cita "Hypnum sp." sem foto adicional que sustente o gênero. Reconciliar antes da Mostra.',
+    fields:[['Local','Ponto 5'],['Atenção','Divergência entre os próprios materiais da turma — confirmar com a professora']],
+    badge:{type:'flag', label:'Nome divergente entre os materiais da turma'}
+  },
+  {
+    id:6, x:900, y:120, sec:0.98, kind:'cave', final:true,
+    name:'Salão das Estalactites', sci:'Caverna — Grupo Santa Bárbara',
+    eyebrow:'Ponto final · Geologia',
+    text:'A mais ampla das três cavernas da Pedra do Segredo. O nome é oficial e real — mas vale a ressalva científica: estalactites verdadeiras se formam por dissolução de carbonato de cálcio, e esta rocha é conglomerado/arenito siliciclástico. A estrutura pendente do teto é, muito provavelmente, resultado de erosão diferencial e cimentação silicosa localizada — um processo distinto, ainda que visualmente parecido.',
+    fields:[['Rocha','Conglomerado e arenito avermelhado'],['Idade','~550 Ma (Ediacarano)']],
+    badge:{type:'flag', label:'Nuance científica'}
+  },
+];
+
+/* ---------- icon glyphs (inline svg strings) ---------- */
+const icons = {
+  start:  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 21V4l14 4-6 3 6 3-14 4" stroke="#F4EEDD" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/></svg>',
+  plant:  '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 21V9M12 9C12 9 6 9 6 4C11 4 12 9 12 9ZM12 9C12 9 18 9 18 4C13 4 12 9 12 9Z" stroke="#F4EEDD" stroke-width="1.8" stroke-linejoin="round"/></svg>',
+  fungus: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12C4 7 8 4 12 4C16 4 20 7 20 12H4Z" stroke="#F4EEDD" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 12V19M15 12V19" stroke="#F4EEDD" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  lichen: '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="3" stroke="#F4EEDD" stroke-width="1.8"/><circle cx="12" cy="4" r="1.6" fill="#F4EEDD"/><circle cx="20" cy="12" r="1.6" fill="#F4EEDD"/><circle cx="12" cy="20" r="1.6" fill="#F4EEDD"/><circle cx="4" cy="12" r="1.6" fill="#F4EEDD"/></svg>',
+  moss:   '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20C4 20 5 10 8 10C9.5 10 10 12 10 14M12 20C12 20 12 6 16 6C18 6 18 10 18 13M20 20C20 20 20 13 17 13" stroke="#F4EEDD" stroke-width="1.8" stroke-linecap="round"/></svg>',
+  cave:   '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 20C3 20 3 9 12 4C21 9 21 20 21 20" stroke="#F4EEDD" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 20C8 20 8 13 12 11C16 13 16 20 16 20" stroke="#F4EEDD" stroke-width="1.8" stroke-linejoin="round"/></svg>'
+};
+
+const svgNS = 'http://www.w3.org/2000/svg';
+const stopsGroup = document.getElementById('stops');
+const panel = document.getElementById('panel');
+const walker = document.getElementById('walker');
+const secPath = {x0:40, y0:50, x1:1160, y1:24}; // approx endpoints of the section trail line
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+stops.forEach(s=>{
+  const g = document.createElementNS(svgNS,'g');
+  g.setAttribute('class','stop' + (s.final?' final':'') + (s.badge && s.badge.type==='fix' ? ' corrected':''));
+  g.setAttribute('tabindex','0');
+  g.setAttribute('role','button');
+  g.setAttribute('aria-label', s.name);
+  g.setAttribute('transform', `translate(${s.x},${s.y})`);
+  g.dataset.id = s.id;
+
+  const pulse = document.createElementNS(svgNS,'circle');
+  pulse.setAttribute('class','pulse');
+  pulse.setAttribute('r', s.final ? 26 : 22);
+  g.appendChild(pulse);
+
+  const ring = document.createElementNS(svgNS,'circle');
+  ring.setAttribute('class','ring');
+  ring.setAttribute('r', s.final ? 24 : 20);
+  g.appendChild(ring);
+
+  const iconWrap = document.createElementNS(svgNS,'g');
+  iconWrap.setAttribute('transform', `translate(${-11},${-11}) scale(0.92)`);
+  iconWrap.innerHTML = icons[s.kind] || '';
+  g.appendChild(iconWrap);
+
+  const tag = document.createElementNS(svgNS,'text');
+  tag.setAttribute('class','name-tag');
+  tag.setAttribute('x', 0);
+  tag.setAttribute('y', s.final ? -34 : -30);
+  tag.textContent = s.final ? 'Salão das Estalactites' : s.name;
+  g.appendChild(tag);
+
+  g.addEventListener('click', ()=>selectStop(s.id));
+  g.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); selectStop(s.id);} });
+
+  stopsGroup.appendChild(g);
+});
+
+function selectStop(id){
+  const s = stops.find(st=>st.id===id);
+  document.querySelectorAll('.stop').forEach(el=>el.classList.remove('active'));
+  const el = document.querySelector(`.stop[data-id="${id}"]`);
+  if(el) el.classList.add('active');
+
+  const badgeHTML = s.badge ? `<span class="badge ${s.badge.type}">${s.badge.label}</span>` : '';
+  const fieldsHTML = s.fields.map(f=>`<div class="field"><div class="field-label">${f[0]}</div><div class="field-value">${f[1]}</div></div>`).join('');
+  const glyphClass = s.final ? 'glyph gold' : 'glyph';
+
+  panel.innerHTML = `
+    <div class="panel-head">
+      <div class="${glyphClass}">${icons[s.kind]||''}</div>
+      <div class="panel-titles">
+        <p class="panel-eyebrow">${s.eyebrow}</p>
+        <h2 class="panel-title">${s.name}</h2>
+        <p class="panel-sci">${s.sci}</p>
+      </div>
+      <button class="close-btn" id="panelClose" aria-label="Fechar">×</button>
+    </div>
+    <div class="panel-body">
+      ${badgeHTML}
+      <p>${s.text}</p>
+      <hr class="rule"/>
+      ${fieldsHTML}
+    </div>
+  `;
+  panel.classList.add('open');
+  document.getElementById('panelClose').addEventListener('click', closePanel);
+
+  const t = s.sec;
+  const wx = lerp(secPath.x0, secPath.x1, t);
+  const wy = lerp(secPath.y0, secPath.y1, t);
+  walker.setAttribute('cx', wx);
+  walker.setAttribute('cy', wy);
+}
+
+function closePanel(){
+  panel.classList.remove('open');
+  document.querySelectorAll('.stop').forEach(el=>el.classList.remove('active'));
+  setTimeout(()=>{ if(!panel.classList.contains('open')) panel.innerHTML = document.getElementById('introTemplate') ? '' : introMarkup(); }, 300);
+}
+
+function introMarkup(){
+  return `<div id="intro"><h2>Toque em um ponto da trilha</h2><p>Cada marcador mostra o que foi observado naquele trecho durante a aula de campo — geologia, líquens, fungos e a vegetação do Bioma Pampa. O ponto dourado é o Salão das Estalactites, no alto da trilha.</p></div>`;
+}
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  closePanel();
+  panel.innerHTML = introMarkup();
+  walker.setAttribute('cx', secPath.x0);
+  walker.setAttribute('cy', secPath.y0);
+});
+
+document.getElementById('aboutBtn').addEventListener('click', ()=>{
+  document.getElementById('about').classList.add('open');
+});
+document.getElementById('aboutClose').addEventListener('click', ()=>{
+  document.getElementById('about').classList.remove('open');
+});
+document.getElementById('about').addEventListener('click', (e)=>{
+  if(e.target.id==='about') document.getElementById('about').classList.remove('open');
+});
+</script>
+</body>
+</html>
