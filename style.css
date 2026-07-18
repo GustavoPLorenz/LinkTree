@@ -77,7 +77,7 @@ h1{
     left: 50%;
     position: absolute;
 
-    font-size: 4.6vw;
+    font-size: 3.8vmin;
     font-family: Arial, Helvetica, sans-serif;
     text-align: center;
 }
@@ -98,7 +98,10 @@ h2 {
 
 a{
     position: relative;
-    color: black;
+}
+
+a:link {
+  color: black;
 }
 
 a:visited {
