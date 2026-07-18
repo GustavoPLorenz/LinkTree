@@ -77,9 +77,11 @@ h1{
     left: 50%;
     position: absolute;
 
-    font-size: 3.5vmin;
+    white-space: nowrap;
     font-family: Arial, Helvetica, sans-serif;
     text-align: center;
+    line-height: 1;
+    font-size: 3.8vh;
 }
 
 h2 {
